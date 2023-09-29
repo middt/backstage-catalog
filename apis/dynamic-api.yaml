@@ -8,6 +8,6 @@ metadata:
 spec:
   type: openapi
   lifecycle: dynamic
-  owner: team-d
+  owner: group:team-d
   definition:
     $text: https://test-amorphie-tag.burgan.com.tr/swagger/v1/swagger.yaml
