@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: api-name-dynamic
+  description: Dynamic APIs
+  tags:
+    - dynamic
+spec:
+  type: openapi
+  lifecycle: dynamic
+  owner: team-d
+  definition:
+    $text: https://test-amorphie-tag.burgan.com.tr/swagger/v1/swagger.yaml

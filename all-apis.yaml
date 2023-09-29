@@ -7,3 +7,4 @@ spec:
   targets:
     - ./apis/test-api.yaml
     - ./apis/prod-api.yaml
+    - ./apis/dynamic-api.yaml
