@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: transactionLimit
+  description: The Transaction Limit API
+  tags:
+    - transaction
+  annotations:
+    # The annotation is deprecated, we use placeholders (see below) instead, remove it later.
+    backstage.io/definition-at-location: 'url:https://tfs.burgan.com.tr/tfs/DefaultCollection/AydemirTest/_apis/sourceProviders/TfsGit/filecontents?repository=backstage&commitOrBranch=master&api-version=6.0&path=/swagger/swagger.yaml'
+spec:
+  type: openapi
+  lifecycle: production
+  owner: team-a
+  definition:
+    $text: https://tfs.burgan.com.tr/tfs/DefaultCollection/AydemirTest/_git/backstage?path=/swagger/openapi.yaml

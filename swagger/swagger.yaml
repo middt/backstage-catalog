@@ -1,0 +1,939 @@
+openapi: 3.0.1
+info:
+  title: Transaction Limit API
+  description: Transaction Limit and availablity managemement API set.
+  termsOfService: https://hub.burgan.com.tr/api/usage-terms
+  contact:
+    name: Hub Portal of Burgan Bank Turkey
+    url: https://hub.burgan.com.tr
+    email: info@hub.burgan.com.tr
+  license:
+    name: Use under XXX
+    url: https://hub.burgan.com.tr/api/license
+  version: v1
+paths:
+  /BulkOperation/Update:
+    post:
+      tags:
+        - BulkOperation
+      summary: Updates all paths with given values where the query is matched.
+      description: "Updating all definitions that match the query. <br /><br />\r\nUpdate values '-2' can be used on each value to skip updating that parameter.<br /><br />\r\nQuery values '-2' can be used on each value to skip querying for that parameter.<br /><br />"
+      parameters:
+        - name: queryPattern
+          in: query
+          description: Query pattern to update paths.
+          required: true
+          schema:
+            type: string
+        - name: duration
+          in: query
+          description: Durations from the queried paths to be updated. Use '-2' to select all durations.
+          required: true
+          schema:
+            type: string
+        - name: timerLimit
+          in: query
+          description: Timer limit from the queried paths to be updated. Use '-2' to ignore timer limit on query.
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: amountLimit
+          in: query
+          description: Amount limit from the queried paths to be updated. Use '-2' to ignore amount limit on query.
+          required: true
+          schema:
+            type: number
+            format: decimal
+        - name: currencyCode
+          in: query
+          description: Currency Code from the queried paths to be updated.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Update values '-2' can be used on each value to skip updating that parameter.
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/BatchUpdateLimitDefinition'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchUpdateLimitDefinition'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/BatchUpdateLimitDefinition'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/BatchUpdateLimitDefinition'
+        required: true
+      responses:
+        '200':
+          description: Update worked successfully.
+        '452':
+          description: Update has failed.
+        '453':
+          description: Some changes failed to update.Valide the update or try again.
+        '454':
+          description: Invalid timer limit. Cannot be less than 0 '-1' is an exception.
+        '458':
+          description: Currency code is invalid.
+        '465':
+          description: Invalid maximum amount limit. Can not be negative. '-1' is an exception.
+        '468':
+          description: Invalid amount limit. Cannot be less than 0 '-1' is an exception.
+        '470':
+          description: Timer limit can't be bigger than maximum timer limit.
+        '471':
+          description: Invalid maximum timer limit. Can not be negative. '-1' is an exception.
+        '472':
+          description: Invalid default amount limit. Can not be negative. '-1' is an exception.
+        '473':
+          description: Invalid default timer limit. Can not be negative. '-1' is an exception.
+        '500':
+          description: Technical error on the system.
+  /Definition:
+    get:
+      tags:
+        - Definition
+      summary: Returns limit definition by path. Can include root definitions.
+      description: "Get limit definitions. <br /><br />\r\nPath example : \"withdraw/digital/38552069008/4561-1234-4561-5896\" <br /><br />\r\nIf \"includeVariants = true\" and if root paths is exist, returns definition with root definitions. <br /><br />\r\nFor example: \"withdraw/digital/38552069008/4561-1234-4561-5896\", \"withdraw/digital/38552069008/star\", \"withdraw/digital/star/star\" and \"withdraw/star/star/star\" <br /><br />\r\nNot every path has to be a root path, for example it can only be itself: \"limitsofspecialcustomer\" etc. <br /><br />\r\nIMPORTANT WARNING : star = * (because of the swagger)"
+      parameters:
+        - name: path
+          in: query
+          description: Path is going to query.
+          required: true
+          schema:
+            type: string
+        - name: includeVariants
+          in: query
+          description: Does query has to include starred variants of path ?
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: All matched limit definitions have returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LimitDefinition'
+        '460':
+          description: Request path is not found. No limit definitions found on this path.
+        '500':
+          description: Technical error on the system.
+    post:
+      tags:
+        - Definition
+      summary: Creates a new limit definition or updates existing one.
+      description: "Definition examples (just an example, it doesn't have to be like this): <br /><br /> \r\nFor example create atm limits with root definition: <br /><br /> \r\n\"withdraw/burganAtm/customerNo/debitCardNo\" -&gt; This path shows the customer withdrawal limits from Burgan atm with specific debit card. <br /><br /> \r\n\"withdraw/isbankAtm/customerNo/debitCardNo\" -&gt; This path shows the customer withdrawal limits from Is Bank atm with specific debit card. <br /><br /> \r\n\"withdraw/burganAtm/customerNo/star\" -&gt; This path shows the customer total limits it can draw with a debit card from Burgan atm. <br /><br /> \r\n\"withdraw/burganAtm/star/star\" -&gt; This path shows the total limits withdrawal from Burgan atm for all customers. <br /><br /> \r\n\"withdraw/star/star/star\"-&gt; This path shows the total withdrawal limits across the bank. <br /><br /> \r\nNot every path has to be a root path, for example it can only be itself: \"limitsofspecialcustomer\" etc. <br /><br />\r\namount-limit, timer-limit, max-amount-limit and max-timer-limit can be set to '-1' to make them insignificant on that level.<br /><br />\r\nWith this limit will be ignored on this level and get checked at the parent definition. Should not be used with definitions without parent paths.<br /><br />\r\nAvailability -&gt; start and finish(not in exceptions fields) cron fields, if you want to do unlimited time during the day (only standart for unlimited definitions): <br /><br />\r\nunlimited examples : start : \"* * * * 1-5\" finish : \"* * * * 1-5\" -&gt; this definition unlimited on weekdays, if 1-5 -&gt; 0-6 unlimited on week. <br /><br />\r\nnormal cron example : start : \"* 9 * * 1-5\" finish : \"* 18 * * 1-5\" -&gt; transaction time in between 9-18 on weekdays. <br /><br />\r\nnormal cron example with year : start : \"* 9 * * 1-5 ? 2020\" finish : \"* 18 * * 1-5 ? 2020\" -&gt; transaction time in between 9-18 on weekdays at year 2020. <br /><br />\r\nunlimited examples with year: start : \"* * * * 1-5 ? 2020\" finish : \"* * * * 1-5 ? 2020\" -&gt; this definition unlimited on weekdays, if 1-5 -&gt; 0-6 unlimited on week at year 2020. <br /><br />\r\nIMPORTANT WARNING : star = * (because of the swagger)"
+      requestBody:
+        description: Data to create or update definitions.
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrCreateLimitDefinitionRequestDefinition'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrCreateLimitDefinitionRequestDefinition'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrCreateLimitDefinitionRequestDefinition'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrCreateLimitDefinitionRequestDefinition'
+      responses:
+        '200':
+          description: Limit definition has been created/updated succesfully.
+        '452':
+          description: Please send the path. Path can not be empty.
+        '453':
+          description: Please check the minimum and maximum limit.
+        '454':
+          description: Invalid timer limit. Cannot be less than 0 '-1' is an exception
+        '455':
+          description: Please check the maximum limit.
+        '456':
+          description: Please check the minimum limit.
+        '458':
+          description: Currency code is invalid.
+        '459':
+          description: Span type is invalid.
+        '460':
+          description: Please fill in the empty fields.
+        '461':
+          description: Please check the CRON fields.
+        '462':
+          description: Exchange rates could not be obtained. Exchange rates API could be down.
+        '463':
+          description: Please check the exception dates.
+        '464':
+          description: Please check the field names you want to update.
+        '465':
+          description: Invalid maximum amount limit. Can not be negative. '-1' is an exception.
+        '466':
+          description: Amount limit can't be bigger than maximum amount limit.
+        '467':
+          description: Maximum amount limit currency code is invalid.
+        '468':
+          description: Invalid amount limit.
+        '469':
+          description: Invalid path format.
+        '470':
+          description: Timer limit can't be bigger than maximum timer limit.
+        '471':
+          description: Invalid maximum timer limit. Can not be negative. '-1' is an exception.
+        '472':
+          description: Invalid default amount limit. Can not be negative. '-1' is an exception.
+        '473':
+          description: Invalid default timer limit. Can not be negative. '-1' is an exception.
+        '500':
+          description: Technical error on the system.
+    put:
+      tags:
+        - Definition
+      summary: Patches the limit definition with new-utilized-amount-limit and/or new-utilized-timer-limit.
+      description: "Takes definition's path and duration to update limit definition.<br /><br /> \r\nnew-utilized-amount-limit and new-utilized-timer-limit are optional can be updated seperatly or at same time.<br /><br />\r\nUse '-1' when you do not want to update.<br /><br />"
+      parameters:
+        - name: path
+          in: query
+          description: Which path to be updated.
+          required: true
+          schema:
+            type: string
+        - name: duration
+          in: query
+          description: Which duration of the path to be updated.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Data to update definitions. Use '-1' to skip that param.
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/PatchRequestDefinition'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchRequestDefinition'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/PatchRequestDefinition'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/PatchRequestDefinition'
+      responses:
+        '200':
+          description: Limit definition updated succesfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LimitDefinition'
+        '453':
+          description: Amount limit can not be negative. Negative is not applicable.
+        '454':
+          description: Timer limit can not be negative.
+        '460':
+          description: Request path is not found. No limit definitions found with this path and duration.
+  /Definition/Batch:
+    post:
+      tags:
+        - Definition
+      summary: Creates a batch of new limit definitions or updates existing ones. Can also update and create in same batch.
+      description: "Can take multiple definitions at same time below is an example for a single definition.<br /><br />\r\nDefinition examples (just an example, it doesn't have to be like this): <br /><br /> \r\nFor example create atm limits with root definition: <br /><br /> \r\n\"withdraw/burganAtm/customerNo/debitCardNo\" -&gt; This path shows the customer withdrawal limits from Burgan atm with specific debit card. <br /><br /> \r\n\"withdraw/isbankAtm/customerNo/debitCardNo\" -&gt; This path shows the customer withdrawal limits from Is Bank atm with specific debit card. <br /><br /> \r\n\"withdraw/burganAtm/customerNo/star\" -&gt; This path shows the customer total limits it can draw with a debit card from Burgan atm. <br /><br /> \r\n\"withdraw/burganAtm/star/star\" -&gt; This path shows the total limits withdrawal from Burgan atm for all customers. <br /><br /> \r\n\"withdraw/star/star/star\"-&gt; This path shows the total withdrawal limits across the bank. <br /><br /> \r\nNot every path has to be a root path, for example it can only be itself: \"limitsofspecialcustomer\" etc. <br /><br />\r\nAvailability -&gt; start and finish(not in exceptions fields) cron fields, if you want to do unlimited time during the day (only standart for unlimited definitions): <br /><br />\r\nunlimited examples : start : \"* * * * 1-5\" finish : \"* * * * 1-5\" -&gt; this definition unlimited on weekdays, if 1-5 -&gt; 0-6 unlimited on week. <br /><br />\r\nnormal cron example : start : \"* 9 * * 1-5\" finish : \"* 18 * * 1-5\" -&gt; transaction time in between 9-18 on weekdays. <br /><br />\r\nIMPORTANT WARNING : star = * (because of the swagger)"
+      requestBody:
+        description: Data to create or update definitions. An array of data to upadate or create a batch of definitions. Can contain update definitions and create definitions at same batch.
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/UpdateOrCreateLimitDefinitionRequestDefinition'
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/UpdateOrCreateLimitDefinitionRequestDefinition'
+          text/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/UpdateOrCreateLimitDefinitionRequestDefinition'
+          application/*+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/UpdateOrCreateLimitDefinitionRequestDefinition'
+      responses:
+        '200':
+          description: Batch of definitions created/updated all has been completed succesfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ErrorDefinition'
+        '452':
+          description: All definitions failed to create/update. Check the response body for details on errors.
+        '453':
+          description: Some definitions failed to create/update. Check the response body for details on errors.
+        '500':
+          description: Technical error on the system.
+    put:
+      tags:
+        - Definition
+      summary: Patches the limit definition with new-utilized-amount-limit and/or new-utilized-timer-limit.
+      description: "Takes definition's path and duration to update limit definition.<br /><br /> \r\nnew-utilized-amount-limit and new-utilized-timer-limit are optional can be updated seperatly or at same time.<br /><br />\r\nUse '-1' when you do not want to update.<br /><br />"
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BatchPatchRequestDefinition'
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BatchPatchRequestDefinition'
+          text/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BatchPatchRequestDefinition'
+          application/*+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BatchPatchRequestDefinition'
+      responses:
+        '200':
+          description: Limit definition updated succesfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LimitDefinition'
+        '452':
+          description: All definitions failed to create/update. Check the response body for details on errors.
+        '453':
+          description: Some definitions failed to create/update. Check the response body for details on errors.
+  /Execute:
+    post:
+      tags:
+        - Execute
+      summary: Executing limit with utilization or reversal purpose
+      description: "Core operation of transaction limit management service. Before processing transaction just consume execute operation to limit control and limit utilization. <br /><br />\r\nExample : <br /><br />\r\nDefinitions : \"withdraw/digital/38552069008/4561-1234-4561-5896\", \"withdraw/digital/38552069008/star\", \"withdraw/digital/star/star\" and \"withdraw/star/star/star\" <br /><br />\r\nExecute transaction for \"withdraw/digital/38552069008/4561-1234-4561-5896\". When an operation is performed for the this path, the same process is applied for the root paths.<br /><br />\r\nIf there is a exchange code difference between the paths, the transactions are applied by performing a currency conversion. <br /><br />\r\nIf type is \"reversal\" the opposite of normal operations.\r\nIf type is \"simulation\" simulates transaction and return normal response, no database operations.\r\nIf the execute does not find the exact path it returns 204."
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/ExecuteRequestDefinition'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteRequestDefinition'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteRequestDefinition'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ExecuteRequestDefinition'
+      responses:
+        '200':
+          description: Limit execute request is executed successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecuteResponseDefinition'
+        '452':
+          description: Path can not be emtpy or null.
+        '453':
+          description: Invalid amount. Amount can not be negative. Negative is not applicable. Zero is used for rate limiting function.
+        '454':
+          description: '"path" not enough remaining times left to process. One or more paths have zero remaining times left. So can not execute request. Could also mean there are not enough times to do reversal transactions.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LimitDefinition'
+        '455':
+          description: '"path" Minimum transaction limit:"amount". So can not execute request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LimitDefinition'
+        '456':
+          description: '"path" Maximum transaction limit:"amount". So can not execute request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LimitDefinition'
+        '457':
+          description: '"path" remaining amount limit not enough. One or more paths dont have enough remaining amount limit left. So can not execute request. Could also mean there are not enough limit to do reversal transactions.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LimitDefinition'
+        '458':
+          description: Currency code is invalid. Please check the currency code.
+        '459':
+          description: Transaction time is not available. It could be due to exceptions such as holidays or out of available time frame. Will return closest available time. If the available time frame older than current time will return null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityRejectDefinition'
+        '460':
+          description: Path is not defined.
+        '461':
+          description: This path is parent. You can not execute on parent paths.
+        '462':
+          description: Exchange rates could not be obtained. Exchange rates API could be down.
+        '463':
+          description: Path at also-look is not defined. The path at also-look not found. If you do not want to use it send "none" or null.
+        '464':
+          description: An error has been occured in database.
+        '500':
+          description: Technical error on the system.
+  /Search/{page-index}/{page-size}:
+    get:
+      tags:
+        - Search
+      summary: Returns queried limit definitions.
+      description: "Querying limit definitions by paths. <br /><br />\r\nPath example 1: \"withdraw/~/~/4561-1234-4561-5896\" to get all paths that end with \"4561-1234-4561-5896\". <br /><br />\r\nPath example 2 \"withdraw/digital/38552069008/%\" to get all paths under \"withdraw/digital/38552069008/\". <br /><br />\r\n% or ~ can be used in path to tell any from that path. It works like SQL Like.<br /><br />\r\nPageIndex needs to be zero(0) to see first page of search. <br /><br />\r\nPageSize can make the query faster to run if used efficiently.<br /><br />"
+      parameters:
+        - name: query
+          in: query
+          description: Query to search paths.
+          schema:
+            type: string
+        - name: page-index
+          in: path
+          description: Number of page to load. Use zero(0) to load first page
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: page-size
+          in: path
+          description: Size of each page.
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: is-active
+          in: query
+          description: True means only active definitions will be searched. False means all definitions regardsless of active will be searched.
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: All query matching limit definitions have returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchDefinitionsResponseDefinition'
+        '204':
+          description: Query result does not have any results to show.
+        '452':
+          description: Query can not be empty. Please send the query.
+        '453':
+          description: Page Size can not be zero or negative. Page Size can not be higher than 1000.
+        '454':
+          description: Page Index can not be negative.
+        '500':
+          description: Technical error on the system.
+components:
+  schemas:
+    BatchUpdateLimitDefinition:
+      required:
+        - amount-limit
+        - default-amount-limit
+        - default-timer-limit
+        - max-amount-limit
+        - max-timer-limit
+        - timer-limit
+      type: object
+      properties:
+        amount-limit:
+          type: number
+          description: New amount limit. If no changes wanted use '-1'.
+          format: decimal
+        max-amount-limit:
+          type: number
+          description: New Maximum amount limit. If no changes wanted use '-1'.
+          format: decimal
+        default-amount-limit:
+          type: number
+          description: New default amount limit. If no changes wanted use '-1'.
+          format: decimal
+        timer-limit:
+          type: integer
+          description: New timer limit. If no changes wanted use '-1'.
+          format: int32
+          example: 100
+        max-timer-limit:
+          type: integer
+          description: New maximum timer limit. If no changes wanted use '-1'.
+          format: int32
+          example: 100
+        default-timer-limit:
+          type: integer
+          description: New default timer limit. If no changes wanted use '-1'.
+          format: int32
+          example: 100
+      additionalProperties: false
+      description: Limit information of the path
+    TransactionLimitDefinition:
+      required:
+        - currency-code
+        - maximum-limit
+        - minimum-limit
+      type: object
+      properties:
+        minimum-limit:
+          type: number
+          description: Minimum limit for each transaction. Any new transaction amount can not be less than this amount.
+          format: decimal
+        maximum-limit:
+          type: number
+          description: Maximum limit for each transaction. Any new transaction amount can not be more than this amount.
+          format: decimal
+        currency-code:
+          type: string
+          description: Limit's currency code.
+          example: TRY
+      additionalProperties: false
+      description: Per transaction limit information
+    AmountLimitDefinition:
+      required:
+        - currency-code
+        - limit
+        - remaining
+        - utilized
+      type: object
+      properties:
+        limit:
+          type: number
+          description: Limit of path with given currency code
+          format: decimal
+        utilized:
+          type: number
+          description: Utilized amount of limit
+          format: decimal
+        remaining:
+          type: number
+          description: Remaining amount of limit
+          format: decimal
+        currency-code:
+          type: string
+          description: Currency code of limit
+          example: TRY
+      additionalProperties: false
+      description: Limit information of the path
+    TimerLimitDefinition:
+      required:
+        - limit
+        - remaining
+        - utilized
+      type: object
+      properties:
+        max-timer-limit:
+          type: integer
+          description: Maximum limit of timer.
+          format: int32
+          example: 100
+        limit:
+          type: integer
+          description: Timer limit of path. How many times this path can be used.
+          format: int32
+          example: 10
+        utilized:
+          type: integer
+          description: Utilized times of limit. How many times the limit has been used.
+          format: int32
+          example: 4
+        remaining:
+          type: integer
+          description: Remaining times of limit. How many times more the limit can be used.
+          format: int32
+          example: 6
+      additionalProperties: false
+      description: Timer limit information of the path
+    RenewalType:
+      enum:
+        - never
+        - elapsed
+      type: string
+      description: Renewal state of limit. If elapsed is set then when duration is elapsed limit resets automatically.
+    DurationDefinition:
+      type: object
+      properties:
+        span:
+          type: string
+          description: Span is duration of limit by CRON format. Format can also include predefined duration definitions such as; @daily, @weekly, @montly and @yearly.
+          nullable: true
+          example: '@daily'
+        renewal:
+          $ref: '#/components/schemas/RenewalType'
+      additionalProperties: false
+      description: Duration period of the limit. Limit can be renewed at duration if set to elapsed.
+    AvailabilityExceptionDescriptionDefinition:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Description of exception
+          nullable: true
+          example: National Holiday
+        language:
+          type: string
+          description: Language of the  description
+          nullable: true
+          example: tr
+      additionalProperties: false
+      description: Availability exception definition. Definition is supporting multi language support.
+    AvailabilityExceptionDefinition:
+      type: object
+      properties:
+        start:
+          type: string
+          description: Start of exception as CRON format.
+          nullable: true
+          example: 0 0 31 7 * ? 2020
+        finish:
+          type: string
+          description: Finish of exception as CRON format.
+          nullable: true
+          example: 0 0 3 8 * ? 2020
+        descriptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityExceptionDescriptionDefinition'
+          nullable: true
+      additionalProperties: false
+      description: Special exceptional dates for avaiabiliy of limit.
+    AvailabilityDefinition:
+      type: object
+      properties:
+        start:
+          type: string
+          description: Start of limit as CRON format.
+          nullable: true
+          example: 0 9 * * 1-5 ? 2020
+        finish:
+          type: string
+          description: Finish of limit as CRON format.
+          nullable: true
+          example: 0 18 * * 1-5 ? 2020
+        exceptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityExceptionDefinition'
+          description: Exception definitions.
+          nullable: true
+      additionalProperties: false
+      description: Availability information of limit. With this configuration limit can be available like weekends, weekdays, or up to 18:00. Also special dates like holidays can be excluded from availability.
+    LimitDefinition:
+      type: object
+      properties:
+        path:
+          maxLength: 400
+          minLength: 0
+          type: string
+          description: Path of the limit.
+          nullable: true
+          example: withdraw/digital/38552069008/4561-1234-4561-5896
+        created-at:
+          type: string
+          description: Creation date of the limit. DateTime is based on server timeline.
+          format: date-time
+          example: '2019-11-11T14:54:41.0200000'
+        renewed-at:
+          type: string
+          description: Renewal date of the limit. DateTime is based on server timeline.
+          format: date-time
+          example: '2019-11-11T14:54:41.0200000'
+        max-amount-limit:
+          type: number
+          description: Maximum limit of amount.
+          format: decimal
+          nullable: true
+        max-amount-limit-currency-code:
+          type: string
+          description: Currency code of maximum amount limit.
+          nullable: true
+          example: TRY
+        default-timer-limit:
+          type: integer
+          description: Default limit of timer. Can be used to create new limits using this value.
+          format: int32
+          nullable: true
+          example: 100
+        default-amount-limit:
+          type: number
+          description: Default amount. Can be used to create new limits using this value.
+          format: decimal
+          nullable: true
+        transaction-limit:
+          $ref: '#/components/schemas/TransactionLimitDefinition'
+        amount-limit:
+          $ref: '#/components/schemas/AmountLimitDefinition'
+        timer-limit:
+          $ref: '#/components/schemas/TimerLimitDefinition'
+        duration:
+          $ref: '#/components/schemas/DurationDefinition'
+        availability:
+          $ref: '#/components/schemas/AvailabilityDefinition'
+        is-active:
+          type: boolean
+          description: This indicates of the limit is in use or not.
+          example: true
+        also-look:
+          type: string
+          description: "Path of the definition that should be checked while executing this limit.\r\nThe path that is defined here will be used like a parent definition for this definition at execute method.\r\n\"none\" means do not check any other limit than parents."
+          nullable: true
+          example: none
+        expires-at:
+          type: string
+          description: Expiration date of timed limit. "null" if it is not timed.
+          format: date-time
+          nullable: true
+          example: '2019-11-11T14:54:41.0200000'
+      additionalProperties: false
+      description: Limit definition details
+    UpdateOrCreateLimitDefinitionRequestDefinition:
+      required:
+        - path
+      type: object
+      properties:
+        path:
+          type: string
+          description: Path of Limit definition.
+          example: withdraw/burganAtm/customerNo/debitCardNo
+        transaction-minimum-limit:
+          type: number
+          description: Minimum amount per transaction. Any new transaction amount can not be less than this amount.
+          format: decimal
+          nullable: true
+        transaction-maximum-limit:
+          type: number
+          description: Maximum amount per transaction. Any new transaction amount can not be more than this amount.
+          format: decimal
+          nullable: true
+        max-amount-limit:
+          type: number
+          description: "Maximum limit of amount. The maximum that amount limit can be.\r\nIf amount limit and max amount limit does not have same type of currency bank's converter used to convert amounts. \r\nUse '-1\" when you want this field to be blank for this definition."
+          format: decimal
+          nullable: true
+        max-amount-limit-currency-code:
+          type: string
+          description: Maximum amount limit's currency code.
+          nullable: true
+          example: TRY
+        amount-limit:
+          type: number
+          description: Amount limit. The amount that can be used from this limit.
+          format: decimal
+          nullable: true
+        max-timer-limit:
+          type: integer
+          description: Maximum limit of timer. Use '-1" when you want this field to be blank for this definition.
+          format: int32
+          nullable: true
+          example: 100
+        timer-limit:
+          type: integer
+          description: Timer limit. How many times this limit can be used.
+          format: int32
+          nullable: true
+          example: 11
+        currency-code:
+          type: string
+          description: Amount limit's currency code. Can be diffent than maximum amount limit.
+          nullable: true
+          example: TRY
+        default-timer-limit:
+          type: integer
+          description: Default limit of timer. Can be used to create new limits using this value.
+          format: int32
+          nullable: true
+          example: 100
+        default-amount-limit:
+          type: number
+          description: Default amount. Can be used to create new limits using this value.
+          format: decimal
+          nullable: true
+        duration-span:
+          type: string
+          description: Span is duration of limit by CRON format. Format can also include predefined duration definitions such as; @daily, @weekly, @montly and @yearly.
+          nullable: true
+          example: '@daily'
+        duration-renewal:
+          $ref: '#/components/schemas/RenewalType'
+        availability:
+          $ref: '#/components/schemas/AvailabilityDefinition'
+        is-active:
+          type: boolean
+          description: This indicates of the limit is in use or not.
+          nullable: true
+          example: true
+        also-look:
+          type: string
+          description: "Path of the definition that should be checked while executing this limit.\r\nThe path that is defined here will be used like a parent definition for this definition at execute method.\r\n\"none\" means do not check any other limit than parents."
+          nullable: true
+          example: none
+      additionalProperties: false
+      description: Limit definition is going to update
+    PatchRequestDefinition:
+      required:
+        - new-amount-utilized-limit
+        - new-timer-utilized-limit
+      type: object
+      properties:
+        new-amount-utilized-limit:
+          type: number
+          description: Utilized amount limit to be updated. '-1' when wanted to keep unchanged.
+          format: decimal
+        new-timer-utilized-limit:
+          type: number
+          description: Utilized timer limit to be updated. '-1' when wanted to keep unchanged.
+          format: decimal
+      additionalProperties: false
+    ErrorDefinition:
+      type: object
+      properties:
+        path:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+      additionalProperties: false
+      description: Special exceptional dates for avaiabiliy of limit.
+    BatchPatchRequestDefinition:
+      required:
+        - new-amount-utilized-limit
+        - new-timer-utilized-limit
+      type: object
+      properties:
+        path:
+          maxLength: 400
+          minLength: 0
+          type: string
+          description: Path of the limit to update.
+          nullable: true
+          example: withdraw/digital/38552069008/4561-1234-4561-5896
+        span:
+          type: string
+          description: Duration span of the limit to update.
+          nullable: true
+          example: '@daily'
+        new-amount-utilized-limit:
+          type: number
+          description: Utilized amount limit to be updated. '-1' when wanted to keep unchanged.
+          format: decimal
+        new-timer-utilized-limit:
+          type: number
+          description: Utilized timer limit to be updated. '-1' when wanted to keep unchanged.
+          format: decimal
+      additionalProperties: false
+    ExecutionType:
+      enum:
+        - utilize
+        - reversal
+        - simulation
+      type: string
+      description: Type of execution. If process is utilization set the type to utilize, if the process refund, reversal or cancelation set to reversal.
+    ExecuteRequestDefinition:
+      required:
+        - amount
+        - currency-code
+        - is-exact-path-required
+        - path
+        - type
+      type: object
+      properties:
+        path:
+          maxLength: 400
+          minLength: 0
+          type: string
+          description: Path of the limit to be executed.
+          example: withdraw/digital/38552069008/4561-1234-4561-5896
+        amount:
+          type: number
+          description: The amount to be executed.
+          format: decimal
+        currency-code:
+          type: string
+          description: Currency code of amount. If currency code is equal to limit definition's currency code then it is directly executed. If it is different then before execution converted to limit currency with bank's exchange rates.
+          example: TRY
+        type:
+          $ref: '#/components/schemas/ExecutionType'
+        is-exact-path-required:
+          type: boolean
+          description: If the exact path is required while executing transaction. Default value is true. When this is false it enables the usage of limit definitions that are not yet defined as full path but has been defined on a higher levels.
+          example: true
+      additionalProperties: false
+      description: Message body of the execution operation
+    ExecuteResponseDefinition:
+      required:
+        - path
+      type: object
+      properties:
+        path:
+          maxLength: 400
+          minLength: 0
+          type: string
+          description: Path of the limit
+          example: withdraw/digital/38552069008/4561-1234-4561-5896
+        span:
+          maxLength: 400
+          minLength: 0
+          type: string
+          description: Span is duration of limit by CRON format. Format can also include predefined duration definitions such as; @daily, @weekly, @montly and @yearly.
+          nullable: true
+          example: '@daily'
+        transaction-limit:
+          $ref: '#/components/schemas/TransactionLimitDefinition'
+        amount-limit:
+          $ref: '#/components/schemas/AmountLimitDefinition'
+        timer-limit:
+          $ref: '#/components/schemas/TimerLimitDefinition'
+      additionalProperties: false
+      description: Message body of the execution operation
+    AvailabilityRejectDefinition:
+      type: object
+      properties:
+        FirstAvailableDate:
+          type: string
+          description: Closest time that is available for transactions. DateTime is based on server timeline.
+          format: date-time
+          nullable: true
+          example: '2020-09-04T09:00:00.0000000'
+        reason:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityExceptionDescriptionDefinition'
+          description: Reason for exception. Default is Time is not in available hours.
+          nullable: true
+      additionalProperties: false
+      description: Special exceptional dates for availability of limit.
+    SearchDefinitionsResponseDefinition:
+      type: object
+      properties:
+        has-next-page:
+          type: boolean
+          description: Definitions list has more page. True/False.
+        limit-definitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/LimitDefinition'
+          description: Limit Definitions Array
+          nullable: true
+      additionalProperties: false
+
