@@ -5,4 +5,5 @@ metadata:
   description: A collection of all test APIs for Backstage
 spec:
   targets:
-    - ./apis/api.yaml
+    - ./apis/test-api.yaml
+    - ./apis/prod-api.yaml
