@@ -7,10 +7,10 @@ metadata:
     - transaction
   annotations:
     # The annotation is deprecated, we use placeholders (see below) instead, remove it later.
-    backstage.io/definition-at-location: 'url:https://tfs.burgan.com.tr/tfs/DefaultCollection/AydemirTest/_apis/sourceProviders/TfsGit/filecontents?repository=backstage&commitOrBranch=master&api-version=6.0&path=/swagger/swagger.yaml'
+    backstage.io/definition-at-location: 'url:https://github.com/middt/backstage-catalog/blob/master/swagger/swagger.yaml'
 spec:
   type: openapi
   lifecycle: production
   owner: team-a
   definition:
-    $text: https://tfs.burgan.com.tr/tfs/DefaultCollection/AydemirTest/_git/backstage?path=/swagger/openapi.yaml
+    $text: https://github.com/middt/backstage-catalog/blob/master/swagger/openapi.yaml
