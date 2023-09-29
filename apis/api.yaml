@@ -1,10 +1,10 @@
 apiVersion: backstage.io/v1alpha1
 kind: API
 metadata:
-  name: transactionLimit
-  description: The Transaction Limit API
+  name: api-name-mt-test
+  description: Sample test APIs
   tags:
-    - transaction
+    - test
   annotations:
     # The annotation is deprecated, we use placeholders (see below) instead, remove it later.
     backstage.io/definition-at-location: 'url:https://github.com/middt/backstage-catalog/blob/master/swagger/swagger.yaml'
